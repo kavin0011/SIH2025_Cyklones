@@ -33,8 +33,9 @@ const VideoDubbing: React.FC = () => {
     // useEffect(() => {
     //     const fetchVoiceTypes = async () => {
     //         try {
-    //             // const response = await axios.get(`${API_BASE_URL}/voice-types`);
-    //             // setVoiceTypes(response.data);
+    //             const response = await axios.get(`${API_BASE_URL}/video_dubbing`);
+    //             console.log('Voice Types Response:', response.data);
+    //             setVoiceTypes(response.data);
     //         } catch (error) {
     //             console.error('Error fetching voice types:', error);
     //         }
@@ -47,43 +48,53 @@ const VideoDubbing: React.FC = () => {
         setSelectedFile(file);
         const url = URL.createObjectURL(file);
         setVideoURL(url);
-
-        const fetchTranscript = async () => {
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-                setVoiceType("Male");
-                const response = await axios.post(`${API_BASE_URL}/video_dubbing`, formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                });
-                setTranscript(response.data);
-            } catch (error) {
-                console.error('Error fetching transcript:', error);
-            }
-        };
-
-        fetchTranscript();
     };
 
     const handleProcess = async () => {
+        if (!selectedFile) {
+            console.error('No file selected');
+            return;
+        }
+
         setIsProcessing(true);
         try {
+            console.log('State before process:', {
+                voiceType,
+                sourceLanguage,
+                targetLanguage,
+                lipSync,
+                noiseReduction,
+                subtitles,
+                audioOffset,
+            });
+
             const formData = new FormData();
-            formData.append('file', selectedFile!);
+            formData.append('file', selectedFile);
             formData.append('sourceLanguage', sourceLanguage);
             formData.append('targetLanguage', targetLanguage);
-            formData.append('voiceType', voiceType);
+            formData.append('voiceType', voiceType || 'Male'); // Default to 'Male' if not selected
             formData.append('lipSync', String(lipSync));
             formData.append('noiseReduction', String(noiseReduction));
             formData.append('subtitles', String(subtitles));
             formData.append('audioOffset', String(audioOffset));
 
-            await axios.post(`${API_BASE_URL}/process-video`, formData, {
+            console.log('FormData entries:', Array.from(formData.entries()));
+            console.log(formData);
+
+            const response = await axios.post(`${API_BASE_URL}/video_dubbing`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
+                responseType: 'blob', // Expecting a file response
             });
-            // Assume backend handles processing and updates transcript if needed
-            const response = await axios.get(`${API_BASE_URL}/transcript`);
-            setTranscript(response.data);
+
+            if (response.data instanceof Blob) {
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                setVideoURL(url); // Update with processed video
+                // Optional transcript fetch (adjust based on backend)
+                // const transcriptResponse = await axios.get(`${API_BASE_URL}/video_dubbing/transcript`, {
+                //     params: { fileId: selectedFile.name },
+                // });
+                // setTranscript(transcriptResponse.data);
+            }
         } catch (error) {
             console.error('Error processing video:', error);
         } finally {
@@ -155,14 +166,38 @@ const VideoDubbing: React.FC = () => {
     };
 
     const handleExport = async () => {
+        if (!selectedFile) {
+            console.error('No file selected');
+            return;
+        }
+
         try {
-            const response = await axios.post(`${API_BASE_URL}/export-video`, {
-                transcript,
+            console.log('State before export:', {
+                voiceType,
                 sourceLanguage,
                 targetLanguage,
-            }, {
-                responseType: 'blob', // For file download
+                lipSync,
+                noiseReduction,
+                subtitles,
+                audioOffset,
             });
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('sourceLanguage', sourceLanguage);
+            formData.append('targetLanguage', targetLanguage);
+            formData.append('voiceType', voiceType || 'Male');
+            formData.append('lipSync', String(lipSync));
+            formData.append('noiseReduction', String(noiseReduction));
+            formData.append('subtitles', String(subtitles));
+            formData.append('audioOffset', String(audioOffset));
+
+            console.log('FormData entries:', Array.from(formData.entries()));
+
+            const response = await axios.post(`${API_BASE_URL}/video_dubbing`, formData, {
+                responseType: 'blob', // Expecting a file response
+            });
+
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -213,7 +248,10 @@ const VideoDubbing: React.FC = () => {
                                     </label>
                                     <select
                                         value={sourceLanguage}
-                                        onChange={(e) => setSourceLanguage(e.target.value)}
+                                        onChange={(e) => {
+                                            console.log('Source Language changed to:', e.target.value);
+                                            setSourceLanguage(e.target.value);
+                                        }}
                                         className={`w-full p-3 rounded-lg border ${
                                             isDark 
                                                 ? 'bg-gray-700 border-gray-600 text-white' 
@@ -234,7 +272,10 @@ const VideoDubbing: React.FC = () => {
                                     </label>
                                     <select
                                         value={targetLanguage}
-                                        onChange={(e) => setTargetLanguage(e.target.value)}
+                                        onChange={(e) => {
+                                            console.log('Target Language changed to:', e.target.value);
+                                            setTargetLanguage(e.target.value);
+                                        }}
                                         className={`w-full p-3 rounded-lg border ${
                                             isDark 
                                                 ? 'bg-gray-700 border-gray-600 text-white' 
@@ -265,7 +306,10 @@ const VideoDubbing: React.FC = () => {
                                     </label>
                                     <select 
                                         value={voiceType}
-                                        onChange={(e) => setVoiceType(e.target.value)}
+                                        onChange={(e) => {
+                                            console.log('Voice Type changed to:', e.target.value);
+                                            setVoiceType(e.target.value);
+                                        }}
                                         className={`w-full px-3 py-2 border rounded-lg ${
                                             isDark 
                                                 ? 'bg-gray-700 border-gray-600 text-white' 
@@ -286,7 +330,11 @@ const VideoDubbing: React.FC = () => {
                                             Lip Sync
                                         </span>
                                         <button
-                                            onClick={() => setLipSync(!lipSync)}
+                                            onClick={() => {
+                                                const newLipSync = !lipSync;
+                                                console.log('Lip Sync changed to:', newLipSync);
+                                                setLipSync(newLipSync);
+                                            }}
                                             className={`w-12 h-6 rounded-full transition-colors ${
                                                 lipSync ? 'bg-blue-600' : isDark ? 'bg-gray-600' : 'bg-gray-300'
                                             } relative`}
@@ -302,7 +350,11 @@ const VideoDubbing: React.FC = () => {
                                             Noise Reduction
                                         </span>
                                         <button
-                                            onClick={() => setNoiseReduction(!noiseReduction)}
+                                            onClick={() => {
+                                                const newNoiseReduction = !noiseReduction;
+                                                console.log('Noise Reduction changed to:', newNoiseReduction);
+                                                setNoiseReduction(newNoiseReduction);
+                                            }}
                                             className={`w-12 h-6 rounded-full transition-colors ${
                                                 noiseReduction ? 'bg-blue-600' : isDark ? 'bg-gray-600' : 'bg-gray-300'
                                             } relative`}
@@ -318,7 +370,11 @@ const VideoDubbing: React.FC = () => {
                                             Generate Subtitles
                                         </span>
                                         <button
-                                            onClick={() => setSubtitles(!subtitles)}
+                                            onClick={() => {
+                                                const newSubtitles = !subtitles;
+                                                console.log('Subtitles changed to:', newSubtitles);
+                                                setSubtitles(newSubtitles);
+                                            }}
                                             className={`w-12 h-6 rounded-full transition-colors ${
                                                 subtitles ? 'bg-blue-600' : isDark ? 'bg-gray-600' : 'bg-gray-300'
                                             } relative`}
@@ -339,7 +395,11 @@ const VideoDubbing: React.FC = () => {
                                         min="-1000"
                                         max="1000"
                                         value={audioOffset}
-                                        onChange={(e) => setAudioOffset(parseInt(e.target.value))}
+                                        onChange={(e) => {
+                                            const newOffset = parseInt(e.target.value);
+                                            console.log('Audio Offset changed to:', newOffset);
+                                            setAudioOffset(newOffset);
+                                        }}
                                         className="w-full accent-blue-600"
                                     />
                                     <div className={`text-center text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
