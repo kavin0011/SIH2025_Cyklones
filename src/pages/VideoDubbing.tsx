@@ -28,7 +28,9 @@ const VideoDubbing: React.FC = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const animationFrameRef = useRef<number | null>(null);
 
-    const API_BASE_URL = 'https://wgmmpvw9-5000.inc1.devtunnels.ms'; // Adjust based on your backend URL
+    // const API_BASE_URL = 'https://wgmmpvw9-5000.inc1.devtunnels.ms'; // Adjust based on your backend URL
+    const API_BASE_URL = 'http://127.0.0.1:5000'; // Adjust based on your backend URL
+
 
     // useEffect(() => {
     //     const fetchVoiceTypes = async () => {
@@ -56,50 +58,46 @@ const VideoDubbing: React.FC = () => {
             return;
         }
 
-        setIsProcessing(true);
-        try {
-            console.log('State before process:', {
-                voiceType,
-                sourceLanguage,
-                targetLanguage,
-                lipSync,
-                noiseReduction,
-                subtitles,
-                audioOffset,
-            });
+        // setIsProcessing(true);
 
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            formData.append('sourceLanguage', sourceLanguage);
-            formData.append('targetLanguage', targetLanguage);
-            formData.append('voiceType', voiceType || 'Male'); // Default to 'Male' if not selected
-            formData.append('lipSync', String(lipSync));
-            formData.append('noiseReduction', String(noiseReduction));
-            formData.append('subtitles', String(subtitles));
-            formData.append('audioOffset', String(audioOffset));
+        const formData = new FormData();
+        formData.append('video', selectedFile);
+        formData.append('src', sourceLanguage);
+        formData.append('dest', targetLanguage);
+        formData.append('voice', voiceType || 'Male');
+        // formData.append('lipSync', String(lipSync));
+        // formData.append('noiseReduction', String(noiseReduction));
+        // formData.append('subtitles', String(subtitles));
+        // formData.append('audioOffset', String(audioOffset));
 
-            console.log('FormData entries:', Array.from(formData.entries()));
-            console.log(formData);
-
-            const response = await axios.post(`${API_BASE_URL}/video_dubbing`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                responseType: 'blob', // Expecting a file response
-            });
-
+        console.log('FormData entries:', Array.from(formData.entries()));
+        // console.log(formData);
+        
+        axios.post('http://127.0.0.1:5000/video_dubbing', formData, {
+            headers: {'Content-Type': 'multipart/form-data',},
+            responseType: 'blob',
+        }).then(response => {
+            console.log('Video processed successfully',response.data);
+            //   const videoBlob = new Blob([response.data], { type: 'video/mp4' });
+            //   const url = URL.createObjectURL(videoBlob);
+            //   setResponse(url);
             if (response.data instanceof Blob) {
-                const url = window.URL.createObjectURL(new Blob([response.data]));
-                setVideoURL(url); // Update with processed video
-                // Optional transcript fetch (adjust based on backend)
-                // const transcriptResponse = await axios.get(`${API_BASE_URL}/video_dubbing/transcript`, {
-                //     params: { fileId: selectedFile.name },
-                // });
-                // setTranscript(transcriptResponse.data);
-            }
-        } catch (error) {
-            console.error('Error processing video:', error);
-        } finally {
-            setIsProcessing(false);
-        }
+                    const url = window.URL.createObjectURL(new Blob([response.data]));
+                    setVideoURL(url); // Update with processed video
+                    console.log('Video processed successfully, URL:', url);
+                    // Optional transcript fetch (adjust based on backend)
+                    // const transcriptResponse = await axios.get(`${API_BASE_URL}/video_dubbing/transcript`, {
+                    //     params: { fileId: selectedFile.name },
+                    // });
+                    // setTranscript(transcriptResponse.data);
+                }
+        })
+        .catch(error => {
+        console.error('Error processing video:', error);
+        })
+        .finally(() => {
+        setIsProcessing(false);
+        });
     };
 
     const togglePlayPause = () => {

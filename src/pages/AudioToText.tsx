@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Download, Mic, Play, Pause } from 'lucide-react';
+import { FileText, Download, Mic } from 'lucide-react';
+import axios from 'axios';
 import UploadPanel from '../components/UploadPanel';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -10,17 +11,52 @@ const AudioToText: React.FC = () => {
   const [extractedText, setExtractedText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [accuracy, setAccuracy] = useState(95);
+  const [error, setError] = useState<string | null>(null);
+  const [sourceLanguage, setSourceLanguage] = useState('en');
+  const [targetLanguage, setTargetLanguage] = useState('en');
+
+  // 🔗 Point this to your backend
+  const API_BASE_URL = 'http://127.0.0.1:5000';
+
+  const languages = [
+     { code: 'en', name: 'English' },
+    { code: 'hi', name: 'Hindi' },
+    { code: 'ta', name: 'Tamil' },
+    { code: 'tu', name: 'Telugu' },
+    { code: 'ma', name: 'Malayalam' },
+  ];
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
+    setError(null);
   };
 
-  const handleExtract = () => {
+  const handleExtract = async () => {
+    if (!selectedFile) return;
+
     setIsProcessing(true);
-    setTimeout(() => {
-      setExtractedText("This is the extracted text from your audio file. The AI speech recognition system has analyzed the audio content and converted it into readable text format. You can now edit, format, or export this text as needed for your documentation or content creation purposes.");
+    setError(null);
+
+    const formData = new FormData();
+    formData.append('audio', selectedFile);
+    formData.append('src_lang', sourceLanguage);
+    formData.append('dest_lang', targetLanguage);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/audio_dubbing`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setExtractedText(response.data.text || 'No text extracted from the audio.');
+      setAccuracy(response.data.accuracy || 95);
+    } catch (err) {
+      setError('Failed to transcribe audio. Please try again.');
+      console.error('Transcription error:', err);
+    } finally {
       setIsProcessing(false);
-    }, 2500);
+    }
   };
 
   return (
@@ -37,6 +73,12 @@ const AudioToText: React.FC = () => {
           Transform audio recordings into editable text documents
         </p>
 
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
             <UploadPanel
@@ -51,8 +93,47 @@ const AudioToText: React.FC = () => {
                 <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   Audio Analysis
                 </h3>
-                
+
                 <div className="space-y-4">
+                  <div className="flex space-x-4 mb-4">
+                    <div className="flex-1">
+                      <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Source Language
+                      </label>
+                      <select
+                        value={sourceLanguage}
+                        onChange={(e) => setSourceLanguage(e.target.value)}
+                        className={`w-full p-2 rounded-lg ${
+                          isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-gray-50 text-gray-900 border-gray-300'
+                        } border focus:ring-2 focus:ring-blue-500`}
+                      >
+                        {languages.map((lang) => (
+                          <option key={lang.code} value={lang.code}>
+                            {lang.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Target Language
+                      </label>
+                      <select
+                        value={targetLanguage}
+                        onChange={(e) => setTargetLanguage(e.target.value)}
+                        className={`w-full p-2 rounded-lg ${
+                          isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-gray-50 text-gray-900 border-gray-300'
+                        } border focus:ring-2 focus:ring-blue-500`}
+                      >
+                        {languages.map((lang) => (
+                          <option key={lang.code} value={lang.code}>
+                            {lang.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
                     <div className="flex justify-between items-center mb-2">
                       <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -60,7 +141,7 @@ const AudioToText: React.FC = () => {
                       </span>
                       <span className="text-green-600 text-sm font-semibold">Excellent</span>
                     </div>
-                    
+
                     <div className="flex justify-between items-center mb-2">
                       <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                         Estimated Accuracy
@@ -78,9 +159,9 @@ const AudioToText: React.FC = () => {
 
                   <button
                     onClick={handleExtract}
-                    disabled={isProcessing}
+                    disabled={isProcessing || !selectedFile}
                     className={`w-full flex items-center justify-center space-x-2 py-3 rounded-lg font-medium transition-colors ${
-                      isProcessing
+                      isProcessing || !selectedFile
                         ? 'bg-gray-400 text-white cursor-not-allowed'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}

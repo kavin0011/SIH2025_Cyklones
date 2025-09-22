@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState ,useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Volume2, Play, Pause, Download, Mic } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import axios from 'axios';
 
 const TextToSpeech: React.FC = () => {
   const { isDark } = useTheme();
@@ -10,23 +11,44 @@ const TextToSpeech: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [voiceType, setVoiceType] = useState('female');
-  const [language, setLanguage] = useState('en');
+  const [language, setLanguage] = useState('ta');
   const [speed, setSpeed] = useState(1.0);
   const [pitch, setPitch] = useState(1.0);
+  const [error, setError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  
+  const API_BASE_URL = 'http://127.0.0.1:5000'
 
-  const handleGenerate = () => {
-    if (!text.trim()) return;
-    
-    setIsGenerating(true);
-    setTimeout(() => {
-      setAudioUrl('generated-audio-placeholder');
-      setIsGenerating(false);
-    }, 2000);
-  };
+const handleGenerate = async () => {
+  if (!text.trim()) return;
 
-  const togglePlay = () => {
-    setIsPlaying(!isPlaying);
-  };
+  setIsGenerating(true);
+  setError(null);
+
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/text_to_speech`,
+      {
+        text,
+        language,
+        voice_type: voiceType,
+        speed,
+        pitch,
+      },
+      { responseType: 'blob' }
+    );
+
+    const url = URL.createObjectURL(new Blob([response.data], { type: 'audio/wav' }));
+    setAudioUrl(url);
+  } catch (err) {
+    setError('Failed to generate speech. Please try again.');
+    console.error('TTS error:', err);
+  } finally {
+    setIsGenerating(false);
+  }
+};
 
   const voiceOptions = [
     { id: 'female', name: 'Sarah (Female)', accent: 'US English' },
@@ -34,7 +56,26 @@ const TextToSpeech: React.FC = () => {
     { id: 'british', name: 'Emma (Female)', accent: 'British English' },
     { id: 'indian', name: 'Priya (Female)', accent: 'Indian English' }
   ];
+  const togglePlay = () => {
+    if (!audioRef.current) return;
 
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+  const formatTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60)
+    .toString()
+    .padStart(1, '0');
+  const s = Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, '0');
+  return `${m}:${s}`;
+};
   return (
     <div className="max-w-6xl mx-auto">
       <motion.div
@@ -154,27 +195,55 @@ const TextToSpeech: React.FC = () => {
             
             {audioUrl ? (
               <div className="space-y-6">
-                <div className={`p-8 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'} text-center`}>
-                  <Volume2 className={`w-16 h-16 mx-auto mb-4 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
-                  <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
-                    Audio ready to play
-                  </p>
-                  <button
-                    onClick={togglePlay}
-                    className="p-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
-                  >
-                    {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
-                  </button>
-                </div>
+                  <div className="space-y-6">
+                    {/* Hidden audio element */}
+                    <audio
+                      ref={audioRef}
+                      src={audioUrl}
+                      onLoadedMetadata={() => {
+                        if (audioRef.current) setDuration(audioRef.current.duration);
+                      }}
+                      onTimeUpdate={() => {
+                        if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+                      }}
+                      onEnded={() => setIsPlaying(false)}
+                    />
+
+
+                    <div className={`p-8 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'} text-center`}>
+                      <Volume2 className={`w-16 h-16 mx-auto mb-4 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                      <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
+                        Audio ready to play
+                      </p>
+                      <button
+                        onClick={togglePlay}
+                        className="p-4 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+                      >
+                        {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
+                      </button>
+                    </div>
+                  </div>
 
                 {/* Audio Controls */}
                 <div className={`p-4 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   <div className="flex items-center space-x-4 mb-4">
-                    <span className="text-sm text-gray-500">0:00</span>
-                    <div className="flex-1 h-2 bg-gray-300 dark:bg-gray-600 rounded-full relative">
-                      <div className="w-1/4 h-full bg-blue-600 rounded-full" />
+                    <span className="text-sm text-gray-500">{formatTime(currentTime)}</span>
+                    <div
+                      className="flex-1 h-2 bg-gray-300 dark:bg-gray-600 rounded-full relative cursor-pointer"
+                      onClick={(e) => {
+                        if (!audioRef.current) return;
+                        const rect = (e.target as HTMLDivElement).getBoundingClientRect();
+                        const clickPos = e.clientX - rect.left;
+                        const newTime = (clickPos / rect.width) * duration;
+                        audioRef.current.currentTime = newTime;
+                      }}
+                    >
+                      <div
+                        className="h-full bg-blue-600 rounded-full"
+                        style={{ width: `${(currentTime / duration) * 100}%` }}
+                      />
                     </div>
-                    <span className="text-sm text-gray-500">2:30</span>
+                    <span className="text-sm text-gray-500">{formatTime(duration)}</span>
                   </div>
                 </div>
 
