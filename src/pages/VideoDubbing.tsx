@@ -28,20 +28,20 @@ const VideoDubbing: React.FC = () => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const animationFrameRef = useRef<number | null>(null);
 
-    const API_BASE_URL = 'http://localhost:5000/api'; // Adjust based on your backend URL
+    const API_BASE_URL = 'https://wgmmpvw9-5000.inc1.devtunnels.ms'; // Adjust based on your backend URL
 
-    useEffect(() => {
-        const fetchVoiceTypes = async () => {
-            try {
-                const response = await axios.get(`${API_BASE_URL}/voice-types`);
-                setVoiceTypes(response.data);
-            } catch (error) {
-                console.error('Error fetching voice types:', error);
-            }
-        };
+    // useEffect(() => {
+    //     const fetchVoiceTypes = async () => {
+    //         try {
+    //             // const response = await axios.get(`${API_BASE_URL}/voice-types`);
+    //             // setVoiceTypes(response.data);
+    //         } catch (error) {
+    //             console.error('Error fetching voice types:', error);
+    //         }
+    //     };
 
-        fetchVoiceTypes();
-    }, []);
+    //     fetchVoiceTypes();
+    // }, []);
 
     const handleFileSelect = (file: File) => {
         setSelectedFile(file);
@@ -52,7 +52,8 @@ const VideoDubbing: React.FC = () => {
             try {
                 const formData = new FormData();
                 formData.append('file', file);
-                const response = await axios.post(`${API_BASE_URL}/transcript`, formData, {
+                setVoiceType("Male");
+                const response = await axios.post(`${API_BASE_URL}/video_dubbing`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
                 setTranscript(response.data);

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import Layout from './components/Layout';
+import { AppProvider } from './contexts/AppContext';
 
 // Pages
 import Home from './pages/Home';
@@ -27,6 +28,8 @@ function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
+        <AppProvider>
+
         <Router>
           <Routes>
             <Route path="/" element={<Layout />}>
@@ -50,6 +53,7 @@ function App() {
             </Route>
           </Routes>
         </Router>
+        </AppProvider>
       </LanguageProvider>
     </ThemeProvider>
   );
